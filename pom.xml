@@ -1,0 +1,73 @@
+<!--Garante que todos do meu grupo use as mesmas dependencias -->
+<!--quando voce roda mvn clean install, o maven le o pom.xml e baixa tudo que precisar da internet automaticamente -->
+<!-- Receita de Bolo, controle de dependencias + identidade do nossp projeto + plugins para automatizar tarefas + padronizar a equipe (eu roger e pedro)--> 
+
+
+
+<!-- raiz do pom, define o esquema xml do maven -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- versao do modelo do pom -->
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- coordenadas do projeto, grupo org e artefato, versao de desenvolvimento -->
+  <groupId>br.inatel.cdg</groupId>
+  <artifactId>sistema-notas</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <name>Sistema de Notas</name>
+
+  <properties>
+    <!-- compilar para java 21, usa o release para alinhar fonte e target -->
+    <maven.compiler.release>21</maven.compiler.release>
+    <!-- encoding padrao para evitar problema de acentuacao em fontes -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- encoding do site de relatorios, opcional mas ajuda -->
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <dependencies>
+    <!-- junit 4 para testes no estilo do professor -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- mockito para criar mocks dos repositorios -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.12.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- surefire roda os testes, versao 3 funciona bem com java 21 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <!-- configuracoes opcionais, pode deixar vazio por enquanto -->
+        <configuration>
+          <!-- garante que o junit 4 seja detectado sem precisar de nada extra -->
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!-- secao de relatorios, gera html em target/site -->
+  <reporting>
+    <plugins>
+      <!-- plugin de relatorio do surefire, diferente do plugin que executa os testes -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-report-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+    </plugins>
+  </reporting>
+</project>
