@@ -5,8 +5,6 @@ import br.inatel.cdg.boletim.exceptions.AlunoNaoEncontradoException;
 import br.inatel.cdg.boletim.repository.AlunoRepository;
 import br.inatel.cdg.boletim.repository.NotasRepository;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Map;
 
 public class BoletimService {
@@ -17,7 +15,7 @@ public class BoletimService {
     private double pesoP1 = 0.4; // quarenta por cento
     private double pesoP2 = 0.6; // sessenta por cento
 
-    // politicas simples para arredondamento e recuperacao
+    // politicas usadas pelo servico
     private final PoliticaArredondamento arred = new PoliticaArredondamento();
     private final PoliticaRecuperacao politicaRec = new PoliticaRecuperacao();
 
@@ -34,11 +32,6 @@ public class BoletimService {
         }
     }
 
-    // arredonda valor para uma casa decimal
-    private double arredondar1(double valor) {
-        return new BigDecimal(valor).setScale(1, RoundingMode.HALF_UP).doubleValue();
-    }
-
     // calcula a media ponderada usando p1 e p2 sem considerar recuperacao
     public double calcularMediaSemRecuperacao(String idAluno) {
         if (!alunoRepo.existsById(idAluno)) {
@@ -52,8 +45,9 @@ public class BoletimService {
         double p2 = notas.get("P2");
         validarNota(p1);
         validarNota(p2);
+
         double media = p1 * pesoP1 + p2 * pesoP2; // combina pesos de p1 e p2
-        return arredondar1(media); // retorna com uma casa decimal
+        return arred.paraUmaCasa(media); // usa politica de arredondamento
     }
 
     // define a situacao parcial do aluno
@@ -61,7 +55,7 @@ public class BoletimService {
     // recuperacao se 30 <= media < 60
     // reprovado direto se media < 30
     public String situacaoParcial(String idAluno) {
-        double m = calcularMediaSemRecuperacao(idAluno); // reusa metodo de media
+        double m = calcularMediaSemRecuperacao(idAluno);
         if (m >= 60.0) {
             return "APROVADO";
         } else if (m >= 30.0) {
@@ -73,15 +67,14 @@ public class BoletimService {
 
     // calcula a media final apos considerar recuperacao
     // usa media simples entre media parcial e nota de recuperacao
-    // arredonda para uma casa
     public double calcularMediaPosRecuperacao(String idAluno) {
-        double mediaParcial = calcularMediaSemRecuperacao(idAluno); // valida aluno e notas
+        double mediaParcial = calcularMediaSemRecuperacao(idAluno);
         Double notaRec = notasRepo.getRecuperacao(idAluno); // pode ser nula
         if (notaRec != null) {
             validarNota(notaRec);
         }
-        double mf = politicaRec.aplicar(mediaParcial, notaRec); // regra simples
-        return arredondar1(mf);
+        double mf = politicaRec.aplicar(mediaParcial, notaRec); // regra simples de recuperacao
+        return arred.paraUmaCasa(mf); // padroniza para uma casa
     }
 
     // situacao final apos recuperacao
