@@ -1,6 +1,6 @@
 <!--Garante que todos do meu grupo use as mesmas dependencias -->
 <!--quando voce roda mvn clean install, o maven le o pom.xml e baixa tudo que precisar da internet automaticamente -->
-<!-- Receita de Bolo, controle de dependencias + identidade do nossp projeto + plugins para automatizar tarefas + padronizar a equipe (eu roger e pedro)--> 
+<!-- Receita de Bolo, controle de dependencias + identidade do nossp projeto + plugins para automatizar tarefas + padronizar a equipe (Lucca e Pedro)--> 
 
 
 
