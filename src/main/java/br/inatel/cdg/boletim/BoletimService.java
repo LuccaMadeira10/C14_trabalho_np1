@@ -106,4 +106,41 @@ public class BoletimService {
         this.pesoP1 = pesoP1;
         this.pesoP2 = pesoP2;
     }
+    
+    // método utilitário para obter situação usando enum
+    public SituacaoAluno getSituacaoFinalEnum(String idAluno) {
+        String situacao = situacaoFinal(idAluno);
+        switch (situacao) {
+            case "APROVADO":
+                return SituacaoAluno.APROVADO;
+            case "REPROVADO":
+                return SituacaoAluno.REPROVADO;
+            default:
+                return SituacaoAluno.REPROVADO;
+        }
+    }
+    
+    // método para salvar nota de um aluno
+    public void salvarNota(String idAluno, Avaliacao avaliacao, double nota) {
+        if (!alunoRepo.existsById(idAluno)) {
+            throw new AlunoNaoEncontradoException("aluno nao encontrado");
+        }
+        validarNota(nota);
+        notasRepo.salvarNota(idAluno, avaliacao.name(), nota);
+    }
+    
+    // método para verificar se aluno precisa de recuperação
+    public boolean precisaRecuperacao(String idAluno) {
+        return "RECUPERACAO".equals(situacaoParcial(idAluno));
+    }
+    
+    // método para verificar se aluno foi aprovado direto
+    public boolean aprovadoDireto(String idAluno) {
+        return "APROVADO".equals(situacaoParcial(idAluno));
+    }
+    
+    // método para verificar se aluno foi reprovado direto
+    public boolean reprovadoDireto(String idAluno) {
+        return "REPROVADO_DIRETO".equals(situacaoParcial(idAluno));
+    }
 }
