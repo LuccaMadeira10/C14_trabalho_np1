@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+
 jobs:
   # Job 1: Execução dos Testes (paralelo)
   tests:
@@ -30,24 +36,29 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: Instalar dependências
-      run: mvn clean compile test-compile
+      run: mvn clean compile test-compile -q
       
     - name: Executar testes unitários
-      run: mvn test
+      run: mvn test -q
       
-    - name: Executar testes de integração
-      run: mvn verify -Dskip.unit.tests=true
+    - name: Executar testes de integração  
+      run: mvn verify -q -Dskip.unit.tests=true
       
     - name: Gerar relatório de testes
-      run: mvn surefire-report:report site:site -DgenerateReports=false
+      run: mvn surefire-report:report -q
       
-    - name: Publicar resultados dos testes
-      uses: dorny/test-reporter@v1
+    - name: Verificar resultados dos testes
       if: success() || failure()
-      with:
-        name: Relatório de Testes Maven
-        path: target/surefire-reports/*.xml
-        reporter: java-junit
+      run: |
+        echo "Resultados dos testes:"
+        if [ -f target/surefire-reports/TEST-*.xml ]; then
+          echo "Arquivos de teste encontrados:"
+          ls -la target/surefire-reports/TEST-*.xml
+          echo "Resumo dos testes:"
+          grep -h "testcase" target/surefire-reports/TEST-*.xml | wc -l | xargs echo "Total de testes executados:"
+        else
+          echo "Nenhum arquivo de teste encontrado"
+        fi
         
     - name: Armazenar relatório de testes como artefato
       uses: actions/upload-artifact@v4
@@ -82,13 +93,13 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: Instalar dependências
-      run: mvn clean compile
+      run: mvn clean compile -q
       
     - name: Compilar aplicação
-      run: mvn compile
+      run: mvn compile -q
       
     - name: Empacotar aplicação (JAR)
-      run: mvn package -DskipTests
+      run: mvn package -q -DskipTests
       
     - name: Verificar estrutura do pacote
       run: |
@@ -126,5 +137,3 @@ jobs:
         name: build-info
         path: build-info.txt
         retention-days: 30
-
-  # NOTA: Job de notificação será implementado separadamente pelo Lucca

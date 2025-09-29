@@ -9,9 +9,13 @@ Pipeline automatizado implementado com GitHub Actions com foco nos jobs principa
 - [x] **Execução dos testes** - Job `tests` (paralelo)
 - [x] **Build e empacotamento** - Job `build` (paralelo) 
 - [x] **Armazenamento de artefatos** - Pacotes e relatórios
-- [ ] **Script de email** - A ser implementado pelo Lucca em job separado
 - [x] **Paralelismo** - tests e build executam simultaneamente
 - [x] **Instalação de software** - JDK e Maven via scripts
+
+### ⏳ Pendente (Para o Lucca)
+- [ ] **Job de notificação por email** - A ser implementado
+- [ ] **Script de envio de email** - A ser criado
+- [ ] **Variáveis de ambiente** - A ser configurado
 
 ## 🏗️ Estrutura dos Jobs
 
@@ -42,14 +46,6 @@ Responsabilidades:
 **Artefatos gerados:**
 - `application-package` - Arquivo JAR e classes compiladas
 - `build-info` - Informações detalhadas do build
-
-### 3. 📧 **Job: Notification** 
-```yaml
-Status: A ser implementado pelo Lucca
-- Job de email separado
-- Script de notificação personalizado
-- Variáveis de ambiente para email
-```
 
 ## 🔧 Configuração de Variáveis
 
@@ -112,7 +108,7 @@ graph TD
 
 - **Tests** e **Build** executam simultaneamente
 - Reduz tempo total de execução
-- Notification será implementado pelo Lucca em job separado
+- Job de notificação será adicionado pelo Lucca posteriormente
 
 ## 🛠️ Instalação de Software
 
@@ -183,8 +179,10 @@ curl -H "Content-Type: application/json" \
 - ✅ **Artefatos** - Funcionando completamente  
 - ✅ **Paralelismo** - Implementado entre tests e build
 - ✅ **Instalação automática** - Implementado
-- ⏳ **Email** - A ser implementado pelo Lucca
+- ⏳ **Email/Notificação** - Pendente (responsabilidade do Lucca)
 
 ---
 
-**Próximos passos:** Lucca deve criar job separado para notificação por email com as funcionalidades requeridas.
+**Divisão de responsabilidades:** 
+- ✅ Pipeline base (tests + build) - Implementado
+- ⏳ Job de notificação por email - Para o Lucca implementar
