@@ -1,2 +1,130 @@
-﻿# Workflow do Maven (ajustaremos depois)
+﻿name: CI/CD Pipeline - Sistema Notas Inatel
 
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job 1: Execução dos Testes (paralelo)
+  tests:
+    name: Execução dos Testes
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Configurar JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Cache dependências Maven
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Instalar dependências
+      run: mvn clean compile test-compile
+      
+    - name: Executar testes unitários
+      run: mvn test
+      
+    - name: Executar testes de integração
+      run: mvn verify -Dskip.unit.tests=true
+      
+    - name: Gerar relatório de testes
+      run: mvn surefire-report:report site:site -DgenerateReports=false
+      
+    - name: Publicar resultados dos testes
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Relatório de Testes Maven
+        path: target/surefire-reports/*.xml
+        reporter: java-junit
+        
+    - name: Armazenar relatório de testes como artefato
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports
+        path: |
+          target/surefire-reports/
+          target/site/
+        retention-days: 30
+
+  # Job 2: Build e Empacotamento (paralelo)
+  build:
+    name: Build e Empacotamento
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Configurar JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Cache dependências Maven
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Instalar dependências
+      run: mvn clean compile
+      
+    - name: Compilar aplicação
+      run: mvn compile
+      
+    - name: Empacotar aplicação (JAR)
+      run: mvn package -DskipTests
+      
+    - name: Verificar estrutura do pacote
+      run: |
+        echo "Conteúdo do diretório target:"
+        ls -la target/
+        echo "Informações do JAR gerado:"
+        if [ -f target/*.jar ]; then
+          file target/*.jar
+          jar tf target/*.jar | head -20
+        fi
+        
+    - name: Armazenar pacote como artefato
+      uses: actions/upload-artifact@v4
+      with:
+        name: application-package
+        path: |
+          target/*.jar
+          target/classes/
+        retention-days: 30
+        
+    - name: Gerar informações de build
+      run: |
+        echo "Build Information:" > build-info.txt
+        echo "==================" >> build-info.txt
+        echo "Commit: ${{ github.sha }}" >> build-info.txt
+        echo "Branch: ${{ github.ref_name }}" >> build-info.txt
+        echo "Build Date: $(date)" >> build-info.txt
+        echo "Java Version: $(java -version 2>&1 | head -n 1)" >> build-info.txt
+        echo "Maven Version: $(mvn -version 2>&1 | head -n 1)" >> build-info.txt
+        cat build-info.txt
+        
+    - name: Armazenar informações de build
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-info
+        path: build-info.txt
+        retention-days: 30
+
+  # NOTA: Job de notificação será implementado separadamente pelo Lucca
