@@ -1,6 +1,6 @@
 package br.inatel.cdg.boletim;
 
-import br.inatel.cdg.boletim.exceptions.NotaInvalidaException;   
+import br.inatel.cdg.boletim.exceptions.NotaInvalidaException;
 import br.inatel.cdg.boletim.exceptions.AlunoNaoEncontradoException;
 import br.inatel.cdg.boletim.repository.AlunoRepository;
 import br.inatel.cdg.boletim.repository.NotasRepository;
@@ -16,6 +16,10 @@ public class BoletimService {
 
     private double pesoP1 = 0.4; // quarenta por cento
     private double pesoP2 = 0.6; // sessenta por cento
+
+    // politicas simples para arredondamento e recuperacao
+    private final PoliticaArredondamento arred = new PoliticaArredondamento();
+    private final PoliticaRecuperacao politicaRec = new PoliticaRecuperacao();
 
     // construtor recebe os repositorios de aluno e notas
     public BoletimService(AlunoRepository alunoRepo, NotasRepository notasRepo) {
@@ -67,14 +71,34 @@ public class BoletimService {
         }
     }
 
-    // calcula a media apos considerar prova de recuperacao
+    // calcula a media final apos considerar recuperacao
+    // usa media simples entre media parcial e nota de recuperacao
+    // arredonda para uma casa
     public double calcularMediaPosRecuperacao(String idAluno) {
-        throw new UnsupportedOperationException("implementar na proxima etapa");
+        double mediaParcial = calcularMediaSemRecuperacao(idAluno); // valida aluno e notas
+        Double notaRec = notasRepo.getRecuperacao(idAluno); // pode ser nula
+        if (notaRec != null) {
+            validarNota(notaRec);
+        }
+        double mf = politicaRec.aplicar(mediaParcial, notaRec); // regra simples
+        return arredondar1(mf);
     }
 
-    // define a situacao final do aluno apos recuperacao
+    // situacao final apos recuperacao
+    // aprovado se media final >= 50 senao reprovado
     public String situacaoFinal(String idAluno) {
-        throw new UnsupportedOperationException("implementar na proxima etapa");
+        String parcial = situacaoParcial(idAluno);
+        if ("APROVADO".equals(parcial)) {
+            return "APROVADO";
+        }
+        if ("REPROVADO_DIRETO".equals(parcial)) {
+            return "REPROVADO";
+        }
+        double mf = calcularMediaPosRecuperacao(idAluno);
+        if (mf >= 50.0) {
+            return "APROVADO";
+        }
+        return "REPROVADO";
     }
 
     // permite alterar os pesos de p1 e p2
