@@ -1,0 +1,85 @@
+package br.inatel.cdg.boletim;
+
+import br.inatel.cdg.boletim.exceptions.NotaInvalidaException;   
+import br.inatel.cdg.boletim.exceptions.AlunoNaoEncontradoException;
+import br.inatel.cdg.boletim.repository.AlunoRepository;
+import br.inatel.cdg.boletim.repository.NotasRepository;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Map;
+
+public class BoletimService {
+
+    private final AlunoRepository alunoRepo;
+    private final NotasRepository notasRepo;
+
+    private double pesoP1 = 0.4; // quarenta por cento
+    private double pesoP2 = 0.6; // sessenta por cento
+
+    // construtor recebe os repositorios de aluno e notas
+    public BoletimService(AlunoRepository alunoRepo, NotasRepository notasRepo) {
+        this.alunoRepo = alunoRepo;
+        this.notasRepo = notasRepo;
+    }
+
+    // valida se a nota esta entre 0 e 100
+    private void validarNota(double n) {
+        if (n < 0.0 || n > 100.0) {
+            throw new NotaInvalidaException("nota fora do intervalo 0 a 100");
+        }
+    }
+
+    // arredonda valor para uma casa decimal
+    private double arredondar1(double valor) {
+        return new BigDecimal(valor).setScale(1, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    // calcula a media ponderada usando p1 e p2 sem considerar recuperacao
+    public double calcularMediaSemRecuperacao(String idAluno) {
+        if (!alunoRepo.existsById(idAluno)) {
+            throw new AlunoNaoEncontradoException("aluno nao encontrado");
+        }
+        Map<String, Double> notas = notasRepo.getNotasDoAluno(idAluno);
+        if (notas == null || !notas.containsKey("P1") || !notas.containsKey("P2")) {
+            throw new IllegalStateException("notas P1 e P2 sao obrigatorias");
+        }
+        double p1 = notas.get("P1");
+        double p2 = notas.get("P2");
+        validarNota(p1);
+        validarNota(p2);
+        double media = p1 * pesoP1 + p2 * pesoP2; // combina pesos de p1 e p2
+        return arredondar1(media); // retorna com uma casa decimal
+    }
+
+    // define a situacao parcial do aluno
+    // aprovado se media >= 60
+    // recuperacao se 30 <= media < 60
+    // reprovado direto se media < 30
+    public String situacaoParcial(String idAluno) {
+        double m = calcularMediaSemRecuperacao(idAluno); // reusa metodo de media
+        if (m >= 60.0) {
+            return "APROVADO";
+        } else if (m >= 30.0) {
+            return "RECUPERACAO";
+        } else {
+            return "REPROVADO_DIRETO";
+        }
+    }
+
+    // calcula a media apos considerar prova de recuperacao
+    public double calcularMediaPosRecuperacao(String idAluno) {
+        throw new UnsupportedOperationException("implementar na proxima etapa");
+    }
+
+    // define a situacao final do aluno apos recuperacao
+    public String situacaoFinal(String idAluno) {
+        throw new UnsupportedOperationException("implementar na proxima etapa");
+    }
+
+    // permite alterar os pesos de p1 e p2
+    public void configurarPesos(double pesoP1, double pesoP2) {
+        this.pesoP1 = pesoP1;
+        this.pesoP2 = pesoP2;
+    }
+}
