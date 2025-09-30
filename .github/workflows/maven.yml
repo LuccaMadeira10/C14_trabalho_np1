@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,7 +14,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Job 1: Execução dos Testes (paralelo)
   tests:
     name: Execução dos Testes
     runs-on: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
     - name: Executar testes unitários
       run: mvn test -q
       
-    - name: Executar testes de integração  
+    - name: Executar testes de integração
       run: mvn verify -q -Dskip.unit.tests=true
       
     - name: Gerar relatório de testes
@@ -51,7 +51,7 @@ jobs:
       if: success() || failure()
       run: |
         echo "Resultados dos testes:"
-        if [ -f target/surefire-reports/TEST-*.xml ]; then
+        if ls target/surefire-reports/TEST-*.xml >/dev/null 2>&1; then
           echo "Arquivos de teste encontrados:"
           ls -la target/surefire-reports/TEST-*.xml
           echo "Resumo dos testes:"
@@ -70,7 +70,50 @@ jobs:
           target/site/
         retention-days: 30
 
-  # Job 2: Build e Empacotamento (paralelo)
+    # ===== Notificação por e-mail =====
+    - name: Montar corpo do email (via script do repo)
+      if: always()
+      run: bash scripts/sendEmail.sh
+      env:
+        EMAIL_TO: ${{ vars.EMAIL_TO }}
+        JOB_STATUS: ${{ job.status }}
+        GITHUB_WORKFLOW: ${{ github.workflow }}
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_SHA: ${{ github.sha }}
+
+    - name: Ler corpo para output
+      id: read_body
+      if: always()
+      run: |
+        {
+          echo "content<<'EOF'"
+          if [ -f email-body.txt ]; then
+            cat email-body.txt
+          else
+            echo "Pipeline: ${{ github.workflow }}"
+            echo "Status: ${{ job.status }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Run: ${{ github.run_number }}"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Enviar e-mail (SMTP)
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: CI/CD - ${{ github.repository }} - ${{ job.status }}
+        from: ${{ secrets.SMTP_USERNAME }}
+        to: ${{ vars.EMAIL_TO }}
+        body: ${{ steps.read_body.outputs.content }}
+        attachments: |
+          target/surefire-reports/*.xml
+
   build:
     name: Build e Empacotamento
     runs-on: ubuntu-latest

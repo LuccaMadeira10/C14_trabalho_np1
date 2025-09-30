@@ -170,6 +170,15 @@ service.configurarPesos(0.3, 0.7); // P1=30%, P2=70%
 
 ---
 
+## 📧 Notificações por Email
+
+Foi implementada uma funcionalidade de notificações por email no pipeline do projeto. Para isso, configurei o GitHub Actions para utilizar variáveis de ambiente, permitindo que as credenciais do email sejam mantidas seguras e não expostas no código.
+
+### Testes Extras
+
+Adicionei testes extras para garantir a funcionalidade de notificações. Os arquivos de teste foram atualizados para incluir cenários que validam o envio de emails e a manipulação de erros. Para mais detalhes, consulte a seção de testes já existente no README.
+
+
 **Desenvolvido para o Inatel - Instituto Nacional de Telecomunicações**  
 **Trabalho de Lucca, Pedro!**
 
