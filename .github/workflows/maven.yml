@@ -2,9 +2,10 @@
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, Encerramento ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, Encerramento ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,45 +14,47 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Job 1: Execução dos Testes (paralelo)
+  # =========================
+  # Job 1: Execução dos Testes
+  # =========================
   tests:
     name: Execução dos Testes
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
-      
+
     - name: Configurar JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
-        
+
     - name: Cache dependências Maven
       uses: actions/cache@v3
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
-        
+
     - name: Instalar dependências
       run: mvn clean compile test-compile -q
-      
+
     - name: Executar testes unitários
       run: mvn test -q
-      
-    - name: Executar testes de integração  
+
+    - name: Executar testes de integração
       run: mvn verify -q -Dskip.unit.tests=true
-      
+
     - name: Gerar relatório de testes
       run: mvn surefire-report:report -q
-      
+
     - name: Verificar resultados dos testes
       if: success() || failure()
       run: |
         echo "Resultados dos testes:"
-        if [ -f target/surefire-reports/TEST-*.xml ]; then
+        if ls target/surefire-reports/TEST-*.xml >/dev/null 2>&1; then
           echo "Arquivos de teste encontrados:"
           ls -la target/surefire-reports/TEST-*.xml
           echo "Resumo dos testes:"
@@ -59,7 +62,7 @@ jobs:
         else
           echo "Nenhum arquivo de teste encontrado"
         fi
-        
+
     - name: Armazenar relatório de testes como artefato
       uses: actions/upload-artifact@v4
       if: always()
@@ -70,37 +73,64 @@ jobs:
           target/site/
         retention-days: 30
 
-  # Job 2: Build e Empacotamento (paralelo)
+    # Prepara corpo do e-mail como ARTEFATO para o job notify
+    - name: Normalizar LF e tornar script executável
+      if: always()
+      run: |
+        sed -i 's/\r$//' scripts/sendEmail.sh
+        chmod +x scripts/sendEmail.sh
+
+    - name: Montar corpo do email (gera email-body.txt)
+      if: always()
+      env:
+        EMAIL_TO: ${{ vars.EMAIL_TO }}
+        JOB_STATUS: ${{ job.status }}
+        GITHUB_WORKFLOW: ${{ github.workflow }}
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: bash scripts/sendEmail.sh
+
+    - name: Publicar email-body como artefato
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: email-body
+        path: email-body.txt
+        retention-days: 7
+
+  # =========================
+  # Job 2: Build e Empacotamento
+  # =========================
   build:
     name: Build e Empacotamento
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
-      
+
     - name: Configurar JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
-        
+
     - name: Cache dependências Maven
       uses: actions/cache@v3
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
-        
+
     - name: Instalar dependências
       run: mvn clean compile -q
-      
+
     - name: Compilar aplicação
       run: mvn compile -q
-      
+
     - name: Empacotar aplicação (JAR)
       run: mvn package -q -DskipTests
-      
+
     - name: Verificar estrutura do pacote
       run: |
         echo "Conteúdo do diretório target:"
@@ -110,7 +140,7 @@ jobs:
           file target/*.jar
           jar tf target/*.jar | head -20
         fi
-        
+
     - name: Armazenar pacote como artefato
       uses: actions/upload-artifact@v4
       with:
@@ -119,7 +149,7 @@ jobs:
           target/*.jar
           target/classes/
         retention-days: 30
-        
+
     - name: Gerar informações de build
       run: |
         echo "Build Information:" > build-info.txt
@@ -130,10 +160,61 @@ jobs:
         echo "Java Version: $(java -version 2>&1 | head -n 1)" >> build-info.txt
         echo "Maven Version: $(mvn -version 2>&1 | head -n 1)" >> build-info.txt
         cat build-info.txt
-        
+
     - name: Armazenar informações de build
       uses: actions/upload-artifact@v4
       with:
         name: build-info
         path: build-info.txt
         retention-days: 30
+
+  # =========================
+  # Job 3: Notificação por E-mail
+  # =========================
+  notify:
+    name: Notificação por E-mail
+    runs-on: ubuntu-latest
+    needs: [tests, build]
+    if: always()  # roda mesmo se os anteriores falharem
+
+    steps:
+    - name: Checkout (para manter pasta scripts referenciada nos logs)
+      uses: actions/checkout@v4
+
+    - name: Baixar artefatos (relatórios / corpo do email)
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Usar email-body do artifact ou gerar fallback
+      id: body
+      run: |
+        BODY_PATH="artifacts/email-body/email-body.txt"
+        {
+          echo "content<<EOF"
+          if [ -f "$BODY_PATH" ]; then
+            cat "$BODY_PATH"
+          else
+            echo "Pipeline: ${{ github.workflow }}"
+            echo "Status: ${{ needs.tests.result }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Run: ${{ github.run_number }}"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Enviar e-mail (SMTP)
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "CI/CD - ${{ github.repository }} - Tests:${{ needs.tests.result }} Build:${{ needs.build.result }}"
+        from: ${{ secrets.SMTP_USERNAME }}
+        to: ${{ vars.EMAIL_TO }}
+        body: ${{ steps.body.outputs.content }}
+        attachments: |
+          artifacts/test-reports/target/surefire-reports/*.xml
+          artifacts/build-info/build-info.txt
