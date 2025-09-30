@@ -17,8 +17,7 @@ public class BoletimService {
     private double pesoP1 = 0.4; // quarenta por cento
     private double pesoP2 = 0.6; // sessenta por cento
 
-    // politicas simples para arredondamento e recuperacao
-    private final PoliticaArredondamento arred = new PoliticaArredondamento();
+    // politica de recuperacao em classe separada
     private final PoliticaRecuperacao politicaRec = new PoliticaRecuperacao();
 
     // construtor recebe os repositorios de aluno e notas
@@ -52,6 +51,7 @@ public class BoletimService {
         double p2 = notas.get("P2");
         validarNota(p1);
         validarNota(p2);
+
         double media = p1 * pesoP1 + p2 * pesoP2; // combina pesos de p1 e p2
         return arredondar1(media); // retorna com uma casa decimal
     }
@@ -61,25 +61,18 @@ public class BoletimService {
     // recuperacao se 30 <= media < 60
     // reprovado direto se media < 30
     public String situacaoParcial(String idAluno) {
-        double m = calcularMediaSemRecuperacao(idAluno); // reusa metodo de media
-        if (m >= 60.0) {
-            return "APROVADO";
-        } else if (m >= 30.0) {
-            return "RECUPERACAO";
-        } else {
-            return "REPROVADO_DIRETO";
-        }
+        double m = calcularMediaSemRecuperacao(idAluno);
+        if (m >= 60.0) return "APROVADO";
+        if (m >= 30.0) return "RECUPERACAO";
+        return "REPROVADO_DIRETO";
     }
 
     // calcula a media final apos considerar recuperacao
     // usa media simples entre media parcial e nota de recuperacao
-    // arredonda para uma casa
     public double calcularMediaPosRecuperacao(String idAluno) {
-        double mediaParcial = calcularMediaSemRecuperacao(idAluno); // valida aluno e notas
+        double mediaParcial = calcularMediaSemRecuperacao(idAluno);
         Double notaRec = notasRepo.getRecuperacao(idAluno); // pode ser nula
-        if (notaRec != null) {
-            validarNota(notaRec);
-        }
+        if (notaRec != null) validarNota(notaRec);
         double mf = politicaRec.aplicar(mediaParcial, notaRec); // regra simples
         return arredondar1(mf);
     }
@@ -88,17 +81,10 @@ public class BoletimService {
     // aprovado se media final >= 50 senao reprovado
     public String situacaoFinal(String idAluno) {
         String parcial = situacaoParcial(idAluno);
-        if ("APROVADO".equals(parcial)) {
-            return "APROVADO";
-        }
-        if ("REPROVADO_DIRETO".equals(parcial)) {
-            return "REPROVADO";
-        }
+        if ("APROVADO".equals(parcial)) return "APROVADO";
+        if ("REPROVADO_DIRETO".equals(parcial)) return "REPROVADO";
         double mf = calcularMediaPosRecuperacao(idAluno);
-        if (mf >= 50.0) {
-            return "APROVADO";
-        }
-        return "REPROVADO";
+        return mf >= 50.0 ? "APROVADO" : "REPROVADO";
     }
 
     // permite alterar os pesos de p1 e p2
@@ -106,8 +92,8 @@ public class BoletimService {
         this.pesoP1 = pesoP1;
         this.pesoP2 = pesoP2;
     }
-    
-    // método utilitário para obter situação usando enum
+
+    // metodo utilitario para obter situacao usando enum
     public SituacaoAluno getSituacaoFinalEnum(String idAluno) {
         String situacao = situacaoFinal(idAluno);
         switch (situacao) {
@@ -119,8 +105,8 @@ public class BoletimService {
                 return SituacaoAluno.REPROVADO;
         }
     }
-    
-    // método para salvar nota de um aluno
+
+    // metodo para salvar nota de um aluno
     public void salvarNota(String idAluno, Avaliacao avaliacao, double nota) {
         if (!alunoRepo.existsById(idAluno)) {
             throw new AlunoNaoEncontradoException("aluno nao encontrado");
@@ -128,18 +114,18 @@ public class BoletimService {
         validarNota(nota);
         notasRepo.salvarNota(idAluno, avaliacao.name(), nota);
     }
-    
-    // método para verificar se aluno precisa de recuperação
+
+    // metodo para verificar se aluno precisa de recuperacao
     public boolean precisaRecuperacao(String idAluno) {
         return "RECUPERACAO".equals(situacaoParcial(idAluno));
     }
-    
-    // método para verificar se aluno foi aprovado direto
+
+    // metodo para verificar se aluno foi aprovado direto
     public boolean aprovadoDireto(String idAluno) {
         return "APROVADO".equals(situacaoParcial(idAluno));
     }
-    
-    // método para verificar se aluno foi reprovado direto
+
+    // metodo para verificar se aluno foi reprovado direto
     public boolean reprovadoDireto(String idAluno) {
         return "REPROVADO_DIRETO".equals(situacaoParcial(idAluno));
     }
